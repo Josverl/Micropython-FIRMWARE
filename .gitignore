@@ -1,0 +1,16 @@
+#MPY 
+*/*.bin
+
+#LOBO 
+*/README.txt
+*/flash.*
+**/*.zip
+**/*.bin
+**/*.csv
+
+**/sdkconfig
+**/flash.sh
+
+*/*/README.txt
+
+
