@@ -16,3 +16,6 @@
 
 M5Burner
 M5Burner-flow-only\[OLD\]
+
+#stubid pytest
+.pytest_cache
