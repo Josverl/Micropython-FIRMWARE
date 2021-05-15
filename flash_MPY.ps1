@@ -3,8 +3,8 @@ param (
 
     [string]$serialport ,
 
-    [ValidateSet("v1.9.4","v1.10","v1.11","v1.12","v1.13","custom")]
-    $version = "v1.13"  ,
+    [ValidateSet("v1.9.4","v1.10","v1.11","v1.12","v1.14","v1.15","custom")]
+    $version = "v1.15"  ,
     
     [switch]$NoSpiram,
 
@@ -20,7 +20,7 @@ param (
     $firmware  = $null,
 
     [ValidateSet('idf3','idf4')]
-    $idf = 'idf3',
+    $idf = 'idf4',
 
     [switch]$nightly
 )
@@ -44,9 +44,16 @@ param (
     #                           esp32spiram-idf3-20190529-v1.11.bin
     #                           esp32spiram-idf3-20191211-v1.11-633-gb310930db.bin
 
-    # re-uses the global parameters uses 
+    # re-uses the global parameters
     if ($nightly) { $latest = '-*' } else { $latest = '' }
-    $fwname = "esp32{0}-{1}-*-{2}{3}.bin" -f $spiram,$idf,  $version , $latest
+    
+    # idf version is no longer part of the filename starting from v1.15
+    $idf_part = ""
+    if ($version -lt "v.15"){
+        $idf_part = "-" + $idf
+    }
+
+    $fwname = "esp32{0}{1}-*-{2}{3}.bin" -f $spiram,$idf_part,  $version , $latest
     $file = Get-ChildItem -Path (join-path -path $path -childpath ($folder+ "/" + $fwname) ) | sort | select -First 1
     return $file
 }
