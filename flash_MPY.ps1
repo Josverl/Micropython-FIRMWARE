@@ -3,8 +3,8 @@ param (
 
     [string]$serialport ,
 
-    [ValidateSet("v1.9.4", "v1.10", "v1.11", "v1.12", "v1.14", "v1.15", "v1.16", "v1.17", "custom")]
-    $version = "v1.16"  ,
+    [ValidateSet("v1.9.4", "v1.10", "v1.11", "v1.12", "v1.14", "v1.15", "v1.16", "v1.17", "v1.18", "custom")]
+    $version = "v1.17"  ,
     
     [switch]$NoSpiram,
 
@@ -54,8 +54,9 @@ function find_standard_firmware {
         $idf_part = "-" + $idf
     }
 
-    $fwname = "esp32{0}{1}-*-{2}{3}.bin" -f $spiram, $idf_part, $version , $latest
-    $file = Get-ChildItem -Path (join-path -path $path -childpath ($folder + "/" + $fwname) ) | sort | select -First 1
+    $fwname = "esp32{0}{1}-*-{2}{3}.bin" -f $spiram, $idf_part, $version , $latest, $extradash
+    $files = Get-ChildItem -Path (join-path -path $path -childpath ($folder + "/" + $fwname) ) 
+    $file = $files | sort | select -First 1
     return $file
 }
 
@@ -83,7 +84,7 @@ if ( [string]::IsNullOrEmpty($serialport) ) {
     Write-error "No active port or likely serial device could be detected" 
     exit(-1)   
 }
-Write-host -f Green "Using port ${port}:"
+Write-host -f Green "Using port ${serialport}:"
 
 $Savedir = $PWD
 
