@@ -22,6 +22,9 @@ param (
     [ValidateSet('idf3', 'idf4')]
     $idf = 'idf4',
 
+    [ValidateSet("esp32", "esp8266")]
+    $port = "esp32"  ,
+
     [switch]$nightly
 )
 
@@ -33,44 +36,10 @@ else {
     $spiram = "spiram"
 }
 
-
+$Savedir = $PWD
+# load serialport detection 
 Import-Module $PSScriptRoot\get-serialport.ps1 -Force
 
-
-function find_standard_firmware {
-    param (
-        $folder = "ESP32_Micropython"
-    )
-    # new naming convention :   esp32-idf3-20190529-v1.11.bin
-    #                           esp32spiram-idf3-20190529-v1.11.bin
-    #                           esp32spiram-idf3-20191211-v1.11-633-gb310930db.bin
-
-    # re-uses the global parameters
-    if ($nightly) { $latest = '-*' } else { $latest = '' }
-    
-    # idf version is no longer part of the filename starting from v1.15
-    $idf_part = ""
-    if ($version -lt "v.15") {
-        $idf_part = "-" + $idf
-    }
-
-    $fwname = "esp32{0}{1}-*-{2}{3}.bin" -f $spiram, $idf_part, $version , $latest, $extradash
-    $files = Get-ChildItem -Path (join-path -path $path -childpath ($folder + "/" + $fwname) ) 
-    $file = $files | sort | select -First 1
-    return $file
-}
-
-function find_custom_firmware {
-    param( 
-        $folder = "custom"
-    )
-    # custom fware in this folder 
-    $fwname = 'mpy_*.bin'
-    $p = join-path -path $PSScriptRoot -childpath $folder  -AdditionalChildPath $fwname
-    Write-Host "Path : $p"
-    $file = Get-ChildItem -Path $p | sort | select -First 1
-    return $file
-}
 # ---------------------------------------------
 # get serial port for flashing 
 # ---------------------------------------------
@@ -86,52 +55,101 @@ if ( [string]::IsNullOrEmpty($serialport) ) {
 }
 Write-host -f Green "Using port ${serialport}:"
 
-$Savedir = $PWD
+function find_standard_firmware {
+    param (
+        [ValidateSet("esp32", "esp8266")]
+        $port = "esp32"  ,
+        $folder 
+    )
+    # new naming convention :   esp32-idf3-20190529-v1.11.bin
+    #                           esp32spiram-idf3-20190529-v1.11.bin
+    #                           esp32spiram-idf3-20191211-v1.11-633-gb310930db.bin
+    if (-not $folder) {
+        $folder = "{0}_Micropython" -f $port.toUpper()
+    }
+
+    # re-uses the global parameters
+    if ($nightly) { $latest = '-*' } else { $latest = '' }
+
+    # idf version is no longer part of the filename starting from v1.15
+    $idf_part = ""
+    if ($version -lt "v.15") {
+        $idf_part = "-" + $idf
+    }
+
+    $fwname = "{0}{1}{2}-*-{3}{4}.bin" -f $port, $spiram, $idf_part, $version , $latest 
+    $fw_path = (join-path -path $path -childpath ($folder + "/" + $fwname) ) 
+    $files = Get-ChildItem -Path $fw_path
+    # select the highest version 
+    $file = $files | Sort-Object -Property Name -Descending | select -First 1
+    return $file
+}
+
+function find_custom_firmware {
+    param( 
+        $folder = "custom"
+    )
+    # custom fware in this folder 
+    $fwname = 'mpy_*.bin'
+    $p = join-path -path $PSScriptRoot -childpath $folder  -AdditionalChildPath $fwname
+    Write-Host "Path : $p"
+    $file = Get-ChildItem -Path $p | sort | select -First 1
+    return $file
+}
+
+
+function get-firmware {
+    param (
+        $firmware,
+        [ValidateSet("esp32", "esp8266")]
+        $port = "esp32" 
+    )
+    if ($null -eq $firmware) {
+
+        if ($version -ieq "custom") {
+            $file = find_custom_firmware
+        }
+        else {
+            $file = find_standard_firmware -port $port
+        }
+    }
+    else {
+        # get the most recent firmware that matches the path 
+        $file = Get-ChildItem -Path $firmware | sort LastWriteTime | select -First 1
+    }
+    return $file        
+}
+
+
+$file = get-firmware -firmware $firmware -port $port
+if (-not $file) {
+    Write-warning  "Firmware $version $spiram could not be found"
+    exit(1)
+}
+
+Write-host -f Green "Found firmware" $file.Name
+# Erase
+if (!$KeepFlash) {
+    Write-Host -f Green "Erasing Flash"
+    esptool --chip $port --port $serialport erase_flash
+}
+
+cd $file.Directory
+
+Write-Host -f Green "LoadingFirmware $version $spiram from $($file.Name) to device op port: $serialport"
+# program the firmware starting at address 0x1000: 
+
+# TODO: check if esptool is install / can be started and 
+try {
+    esptool --chip $port --port $serialport --baud $BaudRate --before default_reset --after $after_reset  write_flash --compress --flash_freq 80m --flash_size detect 0x1000  $file.Name
+    #esptool.py --chip esp32 --port $serialport --baud $BaudRate write_flash -z 0x1000 $file.Name 
+}
+catch {
+    Write-Warning "is esptool installed ? try running  > pip install esptool"
+}
+
+cd $Savedir
 
 
 # Continuous reboots after programming: Ensure FLASH_MODE is correct for your
 # board (e.g. ESP-WROOM-32 should be DIO).
-
-if ($null -eq $firmware) {
-
-    if ($version -ieq "custom") {
-        $file = find_custom_firmware
-    }
-    else {
-        $file = find_standard_firmware
-    }
-}
-else {
-    # get the most recent firmware that matches the path 
-    $file = Get-ChildItem -Path $firmware | sort LastWriteTime | select -First 1
-}
-
-
-if ($file) {
-    Write-host -f Green "Found firmware" $file.Name
-    # Erase
-    if (!$KeepFlash) {
-        Write-Host -f Green "Erasing Flash"
-        esptool --chip esp32 --port $serialport erase_flash
-    }
-    
-    cd $file.Directory
-
-    Write-Host -f Green "LoadingFirmware $version $spiram from $($file.Name) to device op port: $serialport"
-    # program the firmware starting at address 0x1000: 
-
-    # TODO: check if esptool is install / can be started and 
-    try {
-        esptool --chip esp32 --port $serialport --baud $BaudRate --before default_reset --after $after_reset  write_flash --compress --flash_freq 80m --flash_size detect 0x1000  $file.Name
-        #esptool.py --chip esp32 --port $serialport --baud $BaudRate write_flash -z 0x1000 $file.Name 
-    }
-    catch {
-        Write-Warning "is esptool installed ? try running  > pip install esptool"
-    }
-    
-    cd $Savedir
-}
-else {
-    Write-warning  "Firmware $version $spiram could not be found"
-}
-
