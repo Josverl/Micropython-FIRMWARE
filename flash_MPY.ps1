@@ -21,15 +21,15 @@ param (
 
     [ValidateSet('idf3', 'idf4')]
     $idf = 'idf4',
-
+    # [--chip {auto,esp8266,esp32,esp32s2,esp32s3beta2,esp32s3,esp32c3,esp32c6beta,esp32h2,esp8684}]
     [ValidateSet("esp32", "esp8266")]
-    $port = "esp32"  ,
+    $chip = "esp32"  ,
 
     [switch]$nightly
 )
 
 # Set spiram option 
-if ($NoSpiram ) {
+if ($NoSpiram -or $chip -eq "esp8266") {
     $spiram = ""
 }
 else {
@@ -58,14 +58,14 @@ Write-host -f Green "Using port ${serialport}:"
 function find_standard_firmware {
     param (
         [ValidateSet("esp32", "esp8266")]
-        $port = "esp32"  ,
+        $chip = "esp32"  ,
         $folder 
     )
     # new naming convention :   esp32-idf3-20190529-v1.11.bin
     #                           esp32spiram-idf3-20190529-v1.11.bin
     #                           esp32spiram-idf3-20191211-v1.11-633-gb310930db.bin
     if (-not $folder) {
-        $folder = "{0}_Micropython" -f $port.toUpper()
+        $folder = "{0}_Micropython" -f $chip.toUpper()
     }
 
     # re-uses the global parameters
@@ -77,7 +77,7 @@ function find_standard_firmware {
         $idf_part = "-" + $idf
     }
 
-    $fwname = "{0}{1}{2}-*-{3}{4}.bin" -f $port, $spiram, $idf_part, $version , $latest 
+    $fwname = "{0}{1}{2}-*-{3}{4}.bin" -f $chip, $spiram, $idf_part, $version , $latest 
     $fw_path = (join-path -path $path -childpath ($folder + "/" + $fwname) ) 
     $files = Get-ChildItem -Path $fw_path
     # select the highest version 
@@ -102,7 +102,7 @@ function get-firmware {
     param (
         $firmware,
         [ValidateSet("esp32", "esp8266")]
-        $port = "esp32" 
+        $chip = "esp32" 
     )
     if ($null -eq $firmware) {
 
@@ -110,7 +110,7 @@ function get-firmware {
             $file = find_custom_firmware
         }
         else {
-            $file = find_standard_firmware -port $port
+            $file = find_standard_firmware -chip $chip
         }
     }
     else {
@@ -121,7 +121,7 @@ function get-firmware {
 }
 
 
-$file = get-firmware -firmware $firmware -port $port
+$file = get-firmware -firmware $firmware -chip $chip
 if (-not $file) {
     Write-warning  "Firmware $version $spiram could not be found"
     exit(1)
@@ -131,17 +131,32 @@ Write-host -f Green "Found firmware" $file.Name
 # Erase
 if (!$KeepFlash) {
     Write-Host -f Green "Erasing Flash"
-    esptool --chip $port --port $serialport erase_flash
+    esptool --chip $chip --port $serialport erase_flash
 }
 
+Write-Host -F Green "Changing to $file"
 cd $file.Directory
 
-Write-Host -f Green "LoadingFirmware $version $spiram from $($file.Name) to device op port: $serialport"
 # program the firmware starting at address 0x1000: 
 
 # TODO: check if esptool is install / can be started and 
 try {
-    esptool --chip $port --port $serialport --baud $BaudRate --before default_reset --after $after_reset  write_flash --compress --flash_freq 80m --flash_size detect 0x1000  $file.Name
+    switch ($chip) {
+        "esp32" { 
+            Write-Host -f Green "Loading Firmware $version $spiram from $($file.Name) to device op port: $serialport"
+            esptool --chip esp32 --port $serialport --baud $BaudRate --before default_reset --after $after_reset  write_flash --compress --flash_freq 80m --flash_size detect 0x1000  $file.Name
+        }
+        "esp8266" { 
+            $BaudRate = 460800
+            Write-Host -f Green "Loading Firmware $version $spiram from $($file.Name) to device op port: $serialport"
+            # esptool --chip $chip --port $serialport --baud $BaudRate --before default_reset --after $after_reset  write_flash --compress --flash_freq 80m --flash_size detect 0x1000  $file.Name
+            esptool --chip esp8266 --port $serialport --baud $BaudRate --before default_reset --after $after_reset write_flash --flash_size=detect 0 $file.Name
+        }
+        Default {
+            Write-Error  "Could not Loading Firmware $version $spiram from $($file.Name) to device op port: $serialport"
+            
+        }
+    }
     #esptool.py --chip esp32 --port $serialport --baud $BaudRate write_flash -z 0x1000 $file.Name 
 }
 catch {
