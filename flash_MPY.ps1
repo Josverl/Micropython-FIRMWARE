@@ -3,7 +3,7 @@ param (
 
     [string]$serialport ,
 
-    [ValidateSet("v1.9.4", "v1.10", "v1.11", "v1.12", "v1.14", "v1.15", "v1.16", "v1.17", "v1.18", "custom")]
+    [ValidateSet("v1.9.4", "v1.10", "v1.11", "v1.12", "v1.13", "v1.14", "v1.15", "v1.16", "v1.17", "v1.18", "custom")]
     $version = "v1.17"  ,
     
     [switch]$NoSpiram,
@@ -36,7 +36,9 @@ else {
     $spiram = "spiram"
 }
 
-$Savedir = $PWD
+Push-Location
+# $Savedir = $PWD
+
 # load serialport detection 
 Import-Module $PSScriptRoot\get-serialport.ps1 -Force
 
@@ -47,7 +49,7 @@ Import-Module $PSScriptRoot\get-serialport.ps1 -Force
 if ([string]::IsNullOrEmpty($serialport)) {
     # Select the first port 
     #Get-SerialPorts | where Service -in ('silabser','CH341SER_A64')
-    $serialport = (Get-SerialPort | where Service -ine 'BTHMODEM' | select -First 1).Port
+    $serialport = (Get-SerialPort | Where-Object Service -ine 'BTHMODEM' | Select-Object -First 1).Port
 }
 if ( [string]::IsNullOrEmpty($serialport) ) {
     Write-error "No active port or likely serial device could be detected" 
@@ -81,7 +83,7 @@ function find_standard_firmware {
     $fw_path = (join-path -path $path -childpath ($folder + "/" + $fwname) ) 
     $files = Get-ChildItem -Path $fw_path
     # select the highest version 
-    $file = $files | Sort-Object -Property Name -Descending | select -First 1
+    $file = $files | Sort-Object -Property Name -Descending | Select-Object -First 1
     return $file
 }
 
@@ -93,7 +95,7 @@ function find_custom_firmware {
     $fwname = 'mpy_*.bin'
     $p = join-path -path $PSScriptRoot -childpath $folder  -AdditionalChildPath $fwname
     Write-Host "Path : $p"
-    $file = Get-ChildItem -Path $p | sort | select -First 1
+    $file = Get-ChildItem -Path $p | Sort-Object | Select-Object -First 1
     return $file
 }
 
@@ -115,7 +117,7 @@ function get-firmware {
     }
     else {
         # get the most recent firmware that matches the path 
-        $file = Get-ChildItem -Path $firmware | sort LastWriteTime | select -First 1
+        $file = Get-ChildItem -Path $firmware | sort-object LastWriteTime | Select-Object -First 1
     }
     return $file        
 }
@@ -135,7 +137,7 @@ if (!$KeepFlash) {
 }
 
 Write-Host -F Green "Changing to $file"
-cd $file.Directory
+Set-Location $file.Directory
 
 # program the firmware starting at address 0x1000: 
 
@@ -149,12 +151,10 @@ try {
         "esp8266" { 
             $BaudRate = 460800
             Write-Host -f Green "Loading Firmware $version $spiram from $($file.Name) to device op port: $serialport"
-            # esptool --chip $chip --port $serialport --baud $BaudRate --before default_reset --after $after_reset  write_flash --compress --flash_freq 80m --flash_size detect 0x1000  $file.Name
             esptool --chip esp8266 --port $serialport --baud $BaudRate --before default_reset --after $after_reset write_flash --flash_size=detect 0 $file.Name
         }
         Default {
             Write-Error  "Could not Loading Firmware $version $spiram from $($file.Name) to device op port: $serialport"
-            
         }
     }
     #esptool.py --chip esp32 --port $serialport --baud $BaudRate write_flash -z 0x1000 $file.Name 
@@ -163,8 +163,8 @@ catch {
     Write-Warning "is esptool installed ? try running  > pip install esptool"
 }
 
-cd $Savedir
-
+# cd $Savedir
+Pop-Location
 
 # Continuous reboots after programming: Ensure FLASH_MODE is correct for your
 # board (e.g. ESP-WROOM-32 should be DIO).
