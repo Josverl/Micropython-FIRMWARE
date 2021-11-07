@@ -1,10 +1,10 @@
 #Requires -Version 5
 param (
 
-    [string]$serialport ,
+    [string]$serialport
 
-    [ValidateSet("v1.9.4", "v1.10", "v1.11", "v1.12", "v1.14", "v1.15", "v1.16", "v1.17", "v1.18", "custom")]
-    $version = "v1.17"  
+    # [ValidateSet("v1.9.4", "v1.10", "v1.11", "v1.12", "v1.14", "v1.15", "v1.16", "v1.17", "v1.18", "custom")]
+    # $version = "v1.17"  
 )
 
 $Savedir = $PWD
@@ -23,8 +23,8 @@ Write-host -f Green "Using port ${serialport}:"
 
 
 
-CD .\LVGL\micropython_v1_17
-esptool.py -p $serialport erase_flash
-esptool.py -p $serialport -b 460800 --before default_reset --after hard_reset --chip esp32 write_flash --flash_mode dio --flash_size detect --flash_freq 40m 0x1000 bootloader.bin 0x8000 partition-table.bin 0x10000 micropython.bin
+# CD .\LVGL\micropython_v1_17
+esptool -p $serialport erase_flash
+esptool -p $serialport -b 460800 --before default_reset --after hard_reset --chip esp32 write_flash --flash_mode dio --flash_size detect --flash_freq 40m 0x1000 bootloader.bin 0x8000 partition-table.bin 0x10000 micropython.bin
 
 cd $Savedir

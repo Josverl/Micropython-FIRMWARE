@@ -27,12 +27,10 @@ function Get-SerialPort {
             $chip_id = $out | Where-Object { $_.StartsWith('Detecting chip type...') } | Select-Object -Last 1
             if ($chip_id) {
                 $chip_id = $chip_id.Replace("Detecting chip type... ", "")
-                Add-Member -InputObject $_ -MemberType NoteProperty -Name "chip" -Value $chip_id 
+                Add-Member -InputObject $_ -MemberType NoteProperty -Name "Chip" -Value $chip_id 
             }
         }
         Write-Output $_
     }
     return $SerialPorts
 }
-
-get-serialport -chip
