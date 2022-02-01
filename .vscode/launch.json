@@ -11,7 +11,7 @@
             "script": "${file}",
             "cwd": "${workspaceFolder}",
             "args": [
-                "-chip esp8266 -version v1.17"
+                // "-chip esp8266 -version v1.17"
             ]
         },
     ],

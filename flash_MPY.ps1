@@ -3,8 +3,8 @@ param (
 
     [string]$serialport ,
 
-    [ValidateSet("v1.9.4", "v1.10", "v1.11", "v1.12", "v1.13", "v1.14", "v1.15", "v1.16", "v1.17", "v1.18", "custom")]
-    $version = "v1.17"  ,
+    [ValidateSet("v1.9.4", "v1.10", "v1.11", "v1.12", "v1.13", "v1.14", "v1.15", "v1.16", "v1.17", "v1.18", "v1.19", "custom")]
+    $version = "v1.19"  ,
     
     [switch]$NoSpiram,
 
