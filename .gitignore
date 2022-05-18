@@ -17,5 +17,7 @@
 M5Burner
 M5Burner-flow-only\[OLD\]
 
-#stubid pytest
+#no pytest
 .pytest_cache
+
+.venv
