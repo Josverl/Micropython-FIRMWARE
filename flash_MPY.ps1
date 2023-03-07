@@ -149,7 +149,9 @@ try {
     switch ($chip) {
         "esp32" { 
             Write-Host -f Green "Loading Firmware $version $spiram from $($file.Name) to device op port: $serialport"
-            esptool --chip esp32 --port $serialport --baud $BaudRate --before default_reset --after $after_reset  write_flash --compress --flash_freq 80m --flash_size detect 0x1000  $file.Name | out-host
+            Write-Host "esptool --chip esp32 --port $serialport --baud $BaudRate --before default_reset --after $after_reset  write_flash --compress --flash_freq 80m --flash_size detect 0x1000  $file" 
+            esptool --chip esp32 --port $serialport --baud $BaudRate --before default_reset --after $after_reset  write_flash --compress --flash_freq=keep --flash_size=keep 0x1000  $file.Name | out-host
+
         }
         "esp8266" { 
             $BaudRate = 460800
